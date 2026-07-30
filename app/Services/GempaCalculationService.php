@@ -5,60 +5,81 @@ namespace App\Services;
 use App\Models\FaFactor;
 use App\Models\FvFactor;
 use App\Models\CalculationHistory;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Service class for earthquake risk calculation based on SNI 1726:2019
  *
- * This service handles the complete calculation pipeline for seismic
- * hazard parameters including PGA, MMI, Risk Category, and KDS.
+ * Ss, S1, PGA, Vs30, dan Kelas Situs otomatis diperoleh dari backend
+ * hazard API (project WEBGIS-SNI-DSS). Perhitungan turunan (Fa, Fv,
+ * SMs, SM1, SDs, SD1, MMI, kategori risiko, KDS) tetap dilakukan di
+ * service ini (server-side), sesuai arsitektur pada skripsi Bab 3.3.2
+ * bahwa seluruh analisis dilakukan di sisi server.
  */
 class GempaCalculationService
 {
-    protected ?string $defaultSiteClass = 'D'; // Default site class for Indonesia
-
     /**
      * Perform complete calculation for a given coordinate
+     *
+     * @param float $latitude
+     * @param float $longitude
+     * @param string|null $siteClassOverride Kelas Situs manual dari user (opsional).
+     *        Null/kosong berarti pakai soil_class otomatis dari backend.
      */
-    public function calculate(float $latitude, float $longitude, ?string $siteClass = null): array
+    public function calculate(float $latitude, float $longitude, ?string $siteClassOverride = null): array
     {
-        $siteClass = $siteClass ?? $this->defaultSiteClass;
+        // Normalisasi: string kosong dari form dianggap "tidak override"
+        $siteClassOverride = ($siteClassOverride !== null && $siteClassOverride !== '')
+            ? strtoupper($siteClassOverride)
+            : null;
 
-        // Step 1: Get Ss and S1 from backend hazard API (project WEBGIS-SNI-DSS)
-        $parameters = $this->getSsS1FromCoordinate($latitude, $longitude);
+        // Step 1: Ambil data hazard lengkap dari backend (Ss, S1, PGA, Vs30, Kelas Situs)
+        $hazard = $this->getHazardDataFromCoordinate($latitude, $longitude);
 
-        // Step 2: Calculate Fa and Fv based on site class
-        $fa = $this->calculateFa($parameters['ss'], $siteClass);
-        $fv = $this->calculateFv($parameters['s1'], $siteClass);
+        // Step 2: Tentukan apakah user melakukan override Kelas Situs
+        $isOverridden = $siteClassOverride !== null && $siteClassOverride !== $hazard['soil_class'];
+        $effectiveSiteClass = $isOverridden ? $siteClassOverride : $hazard['soil_class'];
 
-        // Step 3: Calculate adjusted spectral parameters
-        $sms = $this->calculateSMs($parameters['ss'], $fa);
-        $sm1 = $this->calculateSM1($parameters['s1'], $fv);
+        // Step 3: Hitung Fa dan Fv berdasarkan Kelas Situs efektif
+        $fa = $this->calculateFa($hazard['ss'], $effectiveSiteClass);
+        $fv = $this->calculateFv($hazard['s1'], $effectiveSiteClass);
 
-        // Step 4: Calculate design spectral parameters
+        // Step 4: Parameter spektral teradjustasi
+        $sms = $this->calculateSMs($hazard['ss'], $fa);
+        $sm1 = $this->calculateSM1($hazard['s1'], $fv);
+
+        // Step 5: Parameter spektral desain
         $sds = $this->calculateSDs($sms);
         $sd1 = $this->calculateSD1($sm1);
 
-        // Step 5: Calculate PGA
-        $pga = $this->calculatePGA($sds, $parameters['ss'], $sms);
+        // Step 6: Tentukan PGA — pakai punya backend kecuali user override Kelas Situs
+        if ($isOverridden) {
+            $pga = $this->calculatePGA($sds, $hazard['ss'], $sms);
+            $pgaSource = 'adjusted';
+        } else {
+            $pga = $hazard['pga'];
+            $pgaSource = 'backend';
+        }
 
-        // Step 6: Convert PGA to MMI
+        // Step 7: Konversi PGA ke MMI
         $mmi = $this->convertPgaToMmi($pga);
 
-        // Step 7: Determine Risk Category
+        // Step 8: Tentukan Kategori Risiko
         $riskCategory = $this->determineRiskCategory($pga, $mmi);
 
-        // Step 8: Determine KDS (Seismic Design Category)
+        // Step 9: Tentukan KDS
         $kds = $this->determineKds($sds, $sd1, $riskCategory);
 
         $result = [
             'latitude' => $latitude,
             'longitude' => $longitude,
-            'site_class' => $siteClass,
-            'ss' => round($parameters['ss'], 4),
-            's1' => round($parameters['s1'], 4),
+            'vs30' => $hazard['vs30'],
+            'soil_name' => $hazard['soil_name'],
+            'site_class' => $effectiveSiteClass,
+            'site_class_source' => $isOverridden ? 'manual' : 'otomatis',
+            'ss' => round($hazard['ss'], 4),
+            's1' => round($hazard['s1'], 4),
             'fa' => round($fa, 4),
             'fv' => round($fv, 4),
             'sms' => round($sms, 4),
@@ -66,23 +87,22 @@ class GempaCalculationService
             'sds' => round($sds, 4),
             'sd1' => round($sd1, 4),
             'pga' => round($pga, 4),
+            'pga_source' => $pgaSource,
             'mmi' => round($mmi, 2),
             'risk_category' => $riskCategory,
             'kds' => $kds,
         ];
 
-        // Save to history
         $this->saveHistory($result);
 
         return $result;
     }
 
     /**
-     * Ambil Ss dan S1 dari backend hazard API (project WEBGIS-SNI-DSS)
-     * Menggantikan query PostGIS lokal — sekarang data diambil via HTTP
-     * dari backend terpisah yang menyimpan data spasial hazard.
+     * Ambil data hazard lengkap (Ss, S1, PGA, Vs30, Kelas Situs) dari
+     * backend hazard API (project WEBGIS-SNI-DSS).
      */
-    public function getSsS1FromCoordinate(float $latitude, float $longitude): array
+    public function getHazardDataFromCoordinate(float $latitude, float $longitude): array
     {
         try {
             $response = Http::timeout(5)->get(
@@ -92,34 +112,38 @@ class GempaCalculationService
 
             if ($response->successful()) {
                 $body = $response->json();
-                $rows = $body['data'] ?? [];
+                $rows = $body['data'] ?? $body; // fleksibel: wrapped atau tidak
 
-                if (!empty($rows)) {
-                    $row = $rows[0]; // ambil hasil pertama dari fungsi get_hazard_at_location
+                if (!empty($rows) && isset($rows[0])) {
+                    $row = $rows[0];
 
                     return [
                         'ss' => (float) ($row['ss'] ?? 0.5),
                         's1' => (float) ($row['s1'] ?? 0.2),
+                        'pga' => (float) ($row['pga'] ?? 0.2),
+                        'vs30' => (float) ($row['vs30'] ?? 350),
+                        'soil_class' => strtoupper($row['soil_class'] ?? 'D'),
+                        'soil_name' => $row['soil_name'] ?? null,
                     ];
                 }
             }
 
-            Log::warning('Backend hazard API tidak mengembalikan data untuk koordinat: ' . $latitude . ',' . $longitude);
+            Log::warning("Backend hazard API tidak mengembalikan data untuk koordinat: {$latitude},{$longitude}");
 
         } catch (\Exception $e) {
             Log::error('Gagal menghubungi backend hazard API: ' . $e->getMessage());
         }
 
-        // Fallback kalau API gagal/timeout/data kosong — tetap ada nilai default
         return [
             'ss' => 0.5,
             's1' => 0.2,
+            'pga' => 0.2,
+            'vs30' => 350,
+            'soil_class' => 'D',
+            'soil_name' => 'Tanah Sedang (nilai default/fallback)',
         ];
     }
 
-    /**
-     * Calculate Fa (Site Coefficient for Short Period) based on SNI 1726:2019 Table 7
-     */
     public function calculateFa(float $ss, string $siteClass): float
     {
         $faValue = FaFactor::findFaValue($siteClass, $ss);
@@ -138,9 +162,6 @@ class GempaCalculationService
         };
     }
 
-    /**
-     * Calculate Fv (Site Coefficient for 1-second Period) based on SNI 1726:2019 Table 8
-     */
     public function calculateFv(float $s1, string $siteClass): float
     {
         $fvValue = FvFactor::findFvValue($siteClass, $s1);
@@ -159,49 +180,31 @@ class GempaCalculationService
         };
     }
 
-    /**
-     * SMs = Fa × Ss
-     */
     public function calculateSMs(float $ss, float $fa): float
     {
         return $ss * $fa;
     }
 
-    /**
-     * SM1 = Fv × S1
-     */
     public function calculateSM1(float $s1, float $fv): float
     {
         return $s1 * $fv;
     }
 
-    /**
-     * SDs = (2/3) × SMs
-     */
     public function calculateSDs(float $sms): float
     {
         return (2 / 3) * $sms;
     }
 
-    /**
-     * SD1 = (2/3) × SM1
-     */
     public function calculateSD1(float $sm1): float
     {
         return (2 / 3) * $sm1;
     }
 
-    /**
-     * Calculate PGA (Peak Ground Acceleration) based on SNI 1726:2019
-     */
     public function calculatePGA(float $sds, float $ss, float $sms): float
     {
         return max(0.4 * $ss, 0.4 * $sms);
     }
 
-    /**
-     * Convert PGA value to MMI (Modified Mercalli Intensity) scale
-     */
     public function convertPgaToMmi(float $pga): float
     {
         if ($pga <= 0) {
@@ -215,9 +218,6 @@ class GempaCalculationService
         return round($mmi * 2) / 2;
     }
 
-    /**
-     * Determine Risk Category based on PGA and MMI values
-     */
     public function determineRiskCategory(float $pga, float $mmi): string
     {
         if ($pga >= 0.6 || $mmi >= 9.0) {
@@ -233,9 +233,6 @@ class GempaCalculationService
         }
     }
 
-    /**
-     * Determine KDS (Kategori Desain Seismik / Seismic Design Category)
-     */
     public function determineKds(float $sds, float $sd1, string $riskCategory): string
     {
         $isHighRisk = str_contains($riskCategory, 'Sangat Tinggi') || str_contains($riskCategory, 'Tinggi');
@@ -253,29 +250,6 @@ class GempaCalculationService
         }
     }
 
-    /**
-     * Get site class for a given coordinate from local spatial database
-     * (tetap query lokal — ini beda dari data Ss/S1 yang sudah pindah ke API)
-     */
-    public function getSiteClassFromCoordinate(float $latitude, float $longitude): ?string
-    {
-        $result = DB::select("
-            SELECT site_class
-            FROM site_classes
-            WHERE ST_Contains(geom, ST_SetSRID(ST_MakePoint(?, ?), 4326))
-            LIMIT 1
-        ", [$longitude, $latitude]);
-
-        if (!empty($result)) {
-            return $result[0]->site_class;
-        }
-
-        return null;
-    }
-
-    /**
-     * Save calculation result to history
-     */
     protected function saveHistory(array $result): CalculationHistory
     {
         return CalculationHistory::create([

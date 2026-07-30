@@ -84,7 +84,7 @@
                             <option value="A">A - Batuan Keras</option>
                             <option value="B">B - Batuan</option>
                             <option value="C">C - Tanah Sangat Padat</option>
-                            <option value="D" selected>D - Tanah Kaku (Default)</option>
+                            <option value="D" selected>D - Tanah Kaku</option>
                             <option value="E">E - Tanah Lunak</option>
                         </select>
                     </div>

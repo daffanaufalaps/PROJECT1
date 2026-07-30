@@ -12,7 +12,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('name');
             $table->text('template');
-            $table->jsonb('variables')->default([]);
+            $table->jsonb('variables')->default('[]');
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });

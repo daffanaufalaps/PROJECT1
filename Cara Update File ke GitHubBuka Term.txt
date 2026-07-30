@@ -1,0 +1,23 @@
+Cara Update File ke GitHubBuka Terminal di dalam folder proyek Anda, lalu jalankan perintah ini secara berurutan:
+1. Simpan perubahan baru
+Ketik perintah ini untuk mendeteksi semua file yang baru diedit:
+[git add .]
+
+2. Beri catatan perubahan
+Tuliskan pesan ringkas mengenai apa saja yang baru Anda ubah atau tambahkan:
+[commit -m "mengubah tampilan dashboard"]
+(Ganti teks di dalam tanda kutip sesuai dengan perubahan yang Anda lakukan)
+
+3. Kirim ke GitHubKirim perubahan tersebut ke repositori online Anda:
+git push
+(Anda tidak perlu lagi mengetik -u origin main karena Git sudah mengingat tujuannya dari push pertama)
+
+Tips Tambahan
+Anda bisa mengecek file apa saja yang berubah sebelum melakukan commit dengan mengetik git status.
+Lakukan proses update ini secara berkala, misalnya setiap kali Anda selesai menyelesaikan satu fitur atau sebelum mematikan komputer.
+
+Jadi total kamu perlu 3 terminal terbuka bersamaan:
+
+Backend WEBGIS-SNI-DSS → php artisan serve --port=8001
+Project Gempa (PHP) → php artisan serve (port 8000)
+Project Gempa (Vite, kalau perlu) → npm run dev
