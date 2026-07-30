@@ -45,6 +45,38 @@ class GempaCalculationService
         $fa = $this->calculateFa($hazard['ss'], $effectiveSiteClass);
         $fv = $this->calculateFv($hazard['s1'], $effectiveSiteClass);
 
+        // Kelas Situs tanpa koefisien resmi (mis. Kelas Situs F) tidak bisa
+        // dihitung otomatis -- perlu kajian teknik lebih mendalam di lokasi ini.
+        if ($fa === null || $fv === null) {
+            $result = [
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+                'vs30' => $hazard['vs30'],
+                'soil_name' => $hazard['soil_name'],
+                'site_class' => $effectiveSiteClass,
+                'site_class_source' => $isOverridden ? 'manual' : 'otomatis',
+                'ss' => round($hazard['ss'], 4),
+                's1' => round($hazard['s1'], 4),
+                'fa' => $fa,
+                'fv' => $fv,
+                'sms' => null,
+                'sm1' => null,
+                'sds' => null,
+                'sd1' => null,
+                'pga' => null,
+                'pga_source' => null,
+                'mmi' => null,
+                'risk_category' => null,
+                'kds' => null,
+                'requires_detailed_study' => true,
+                'warning_message' => 'Diperlukan penghitungan yang lebih mendetail terhadap lokasi Anda.',
+            ];
+
+            $this->saveHistory($result);
+
+            return $result;
+        }
+
         // Step 4: Parameter spektral teradjustasi
         $sms = $this->calculateSMs($hazard['ss'], $fa);
         $sm1 = $this->calculateSM1($hazard['s1'], $fv);
@@ -91,6 +123,7 @@ class GempaCalculationService
             'mmi' => round($mmi, 2),
             'risk_category' => $riskCategory,
             'kds' => $kds,
+            'requires_detailed_study' => false,
         ];
 
         $this->saveHistory($result);
@@ -144,7 +177,7 @@ class GempaCalculationService
         ];
     }
 
-    public function calculateFa(float $ss, string $siteClass): float
+    public function calculateFa(float $ss, string $siteClass): ?float
     {
         $faValue = FaFactor::findFaValue($siteClass, $ss);
 
@@ -152,17 +185,20 @@ class GempaCalculationService
             return $faValue;
         }
 
+    // Fallback sementara selama tabel fa_factors belum terisi data resmi SNI.
+    // Kelas Situs F (atau kelas tak dikenal) TIDAK diberi tebakan angka,
+    // karena SNI 1726:2019 mewajibkan kajian spesifik lokasi untuk kelas ini.
         return match ($siteClass) {
             'A' => 0.8,
             'B' => 1.0,
             'C' => 1.2,
             'D' => 1.4,
             'E' => 1.7,
-            default => 1.0,
+            default => null,
         };
     }
 
-    public function calculateFv(float $s1, string $siteClass): float
+    public function calculateFv(float $s1, string $siteClass): ?float
     {
         $fvValue = FvFactor::findFvValue($siteClass, $s1);
 
@@ -176,7 +212,7 @@ class GempaCalculationService
             'C' => 1.7,
             'D' => 2.0,
             'E' => 3.2,
-            default => 1.0,
+            default => null,
         };
     }
 

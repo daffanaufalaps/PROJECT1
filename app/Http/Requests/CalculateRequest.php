@@ -24,8 +24,8 @@ class CalculateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'latitude' => ['required', 'numeric', 'min:-11', 'max:6'],
-            'longitude' => ['required', 'numeric', 'min:95', 'max:141'],
+            'latitude' => ['required', 'numeric', 'min:-8.8', 'max:-5.8'],
+            'longitude' => ['required', 'numeric', 'min:105.0', 'max:114.6'],
             'site_class' => ['nullable', 'string', 'in:A,B,C,D,E'],
         ];
     }
@@ -40,12 +40,12 @@ class CalculateRequest extends FormRequest
         return [
             'latitude.required' => 'Lintang (Latitude) wajib diisi.',
             'latitude.numeric' => 'Lintang harus berupa angka.',
-            'latitude.min' => 'Lintang minimal -11 (wilayah Indonesia).',
-            'latitude.max' => 'Lintang maksimal 6 (wilayah Indonesia).',
+            'latitude.min' => 'Lintang minimal -8.8 (wilayah Pulau Jawa).',
+            'latitude.max' => 'Lintang maksimal -5.8 (wilayah Pulau Jawa).',
             'longitude.required' => 'Bujur (Longitude) wajib diisi.',
             'longitude.numeric' => 'Bujur harus berupa angka.',
-            'longitude.min' => 'Bujur minimal 95 (wilayah Indonesia).',
-            'longitude.max' => 'Bujur maksimal 141 (wilayah Indonesia).',
+            'longitude.min' => 'Bujur minimal 105.0 (wilayah Pulau Jawa).',
+            'longitude.max' => 'Bujur maksimal 114.6 (wilayah Pulau Jawa).',
             'site_class.in' => 'Kelas situs harus salah satu dari: A, B, C, D, atau E.',
         ];
     }

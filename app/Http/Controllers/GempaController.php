@@ -21,8 +21,8 @@ class GempaController extends Controller
      */
     public function index(Request $request): View
     {
-        $latitude = $request->get('lat') ? (float) $request->get('lat') : null;
-        $longitude = $request->get('lng') ? (float) $request->get('lng') : null;
+        $latitude = $request->input('lat') ? (float) $request->input('lat') : null;
+        $longitude = $request->input('lng') ? (float) $request->input('lng') : null;
 
         $initialNarrative = $this->narrationService->generateInitialNarrative($latitude, $longitude);
 
@@ -34,6 +34,27 @@ class GempaController extends Controller
     }
 
     /**
+     * Build narrative/description data, dengan penanganan khusus saat
+     * lokasi membutuhkan kajian lebih mendetail (mis. Kelas Situs F).
+     */
+    protected function buildNarrativeData(array $result): array
+    {
+        if ($result['requires_detailed_study'] ?? false) {
+            return [
+                'narrative' => $result['warning_message'],
+                'mmi_description' => null,
+                'risk_description' => null,
+            ];
+        }
+
+        return [
+            'narrative' => $this->narrationService->generateNarrative($result),
+            'mmi_description' => $this->narrationService->getMmiDescription($result['mmi']),
+            'risk_description' => $this->narrationService->getRiskCategoryDescription($result['risk_category']),
+        ];
+    }
+
+    /**
      * Perform calculation and show results page (Page 2 - Results)
      */
     public function calculate(CalculateRequest $request): View|JsonResponse
@@ -42,33 +63,26 @@ class GempaController extends Controller
         $longitude = (float) $request->longitude;
         $siteClass = $request->site_class;
 
-        // Perform calculation
         $result = $this->calculationService->calculate($latitude, $longitude, $siteClass);
-
-        // Generate narrative
-        $narrative = $this->narrationService->generateNarrative($result);
-        $mmiDescription = $this->narrationService->getMmiDescription($result['mmi']);
-        $riskDescription = $this->narrationService->getRiskCategoryDescription($result['risk_category']);
+        $narrativeData = $this->buildNarrativeData($result);
 
         $responseData = [
             'success' => true,
             'data' => $result,
-            'narrative' => $narrative,
-            'mmi_description' => $mmiDescription,
-            'risk_description' => $riskDescription,
+            'narrative' => $narrativeData['narrative'],
+            'mmi_description' => $narrativeData['mmi_description'],
+            'risk_description' => $narrativeData['risk_description'],
         ];
 
-        // Return JSON for API requests
         if ($request->expectsJson() || $request->is('api/*')) {
             return response()->json($responseData);
         }
 
-        // Return view for web requests
         return view('gempa.result', [
             'result' => $result,
-            'narrative' => $narrative,
-            'mmiDescription' => $mmiDescription,
-            'riskDescription' => $riskDescription,
+            'narrative' => $narrativeData['narrative'],
+            'mmiDescription' => $narrativeData['mmi_description'],
+            'riskDescription' => $narrativeData['risk_description'],
         ]);
     }
 
@@ -83,14 +97,14 @@ class GempaController extends Controller
 
         try {
             $result = $this->calculationService->calculate($latitude, $longitude, $siteClass);
-            $narrative = $this->narrationService->generateNarrative($result);
+            $narrativeData = $this->buildNarrativeData($result);
 
             return response()->json([
                 'success' => true,
                 'data' => $result,
-                'narrative' => $narrative,
-                'mmi_description' => $this->narrationService->getMmiDescription($result['mmi']),
-                'risk_description' => $this->narrationService->getRiskCategoryDescription($result['risk_category']),
+                'narrative' => $narrativeData['narrative'],
+                'mmi_description' => $narrativeData['mmi_description'],
+                'risk_description' => $narrativeData['risk_description'],
             ]);
         } catch (\Exception $e) {
             return response()->json([

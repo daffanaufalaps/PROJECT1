@@ -84,7 +84,7 @@
                             <option value="A">A - Batuan Keras</option>
                             <option value="B">B - Batuan</option>
                             <option value="C">C - Tanah Sangat Padat</option>
-                            <option value="D" selected>D - Tanah Kaku</option>
+                            <option value="D">D - Tanah Kaku</option>
                             <option value="E">E - Tanah Lunak</option>
                         </select>
                     </div>
@@ -156,6 +156,19 @@
                 </div>
             </div>
 
+<!-- Detailed Study Warning (Hidden by default) -->
+<div id="detailedStudyWarning" class="hidden mt-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+    <div class="flex items-start">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <div>
+            <p class="text-sm font-semibold text-yellow-800" id="detailedStudyWarningText"></p>
+            <p class="text-sm text-yellow-700 mt-1">Kelas Situs pada lokasi ini: <span id="detailedStudyWarningSiteClass" class="font-semibold"></span> — sistem tidak dapat memberikan estimasi otomatis untuk kondisi tanah ini.</p>
+        </div>
+    </div>
+</div>
+
             <!-- Results Section (Hidden by default, shown after calculation) -->
             <div id="resultsSection" class="hidden mt-6">
                 <div class="bg-white rounded-xl shadow-md overflow-hidden">
@@ -214,12 +227,23 @@ document.addEventListener("DOMContentLoaded", function() {
     const initialLng = @json($longitude ?? 110.7122);
     const initialZoom = (@json($latitude && $longitude)) ? 12 : 7;
 
-    const map = L.map('map').setView([initialLat, initialLng], initialZoom);
+    // Batas wilayah Pulau Jawa — peta tidak bisa digeser/zoom keluar dari area ini
+    const javaBounds = L.latLngBounds(
+        L.latLng(-8.8, 105.0),  // titik barat daya
+        L.latLng(-5.8, 114.6)   // titik timur laut
+);
 
-    // Add OpenStreetMap base layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 18,
+    const map = L.map('map', {
+        maxBounds: javaBounds,
+        maxBoundsViscosity: 1.0, // 1.0 = benar-benar tidak bisa digeser melewati batas
+        minZoom: 7               // supaya user tidak bisa zoom out sampai keluar area
+        }).setView([initialLat, initialLng], initialZoom);
+
+    // Add Carto Positron base layer
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19,
     }).addTo(map);
 
     // Custom marker icon
@@ -243,22 +267,27 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Map click event
     map.on('click', function(e) {
-        const lat = e.latlng.lat.toFixed(6);
-        const lng = e.latlng.lng.toFixed(6);
+    if (!javaBounds.contains(e.latlng)) {
+        alert('Lokasi yang dipilih berada di luar Pulau Jawa. Silakan pilih titik di dalam Pulau Jawa.');
+        return;
+    }
 
-        // Update form fields
-        document.getElementById('latitude').value = lat;
-        document.getElementById('longitude').value = lng;
+    const lat = e.latlng.lat.toFixed(6);
+    const lng = e.latlng.lng.toFixed(6);
 
-        // Update marker position
-        if (marker) {
-            marker.setLatLng(e.latlng);
-        } else {
-            marker = L.marker(e.latlng, { icon: customIcon }).addTo(map);
-        }
+    // Update form fields
+    document.getElementById('latitude').value = lat;
+    document.getElementById('longitude').value = lng;
 
-        // Update narrative
-        updateInitialNarrative(lat, lng);
+    // Update marker position
+    if (marker) {
+        marker.setLatLng(e.latlng);
+    } else {
+        marker = L.marker(e.latlng, { icon: customIcon }).addTo(map);
+    }
+
+    // Update narrative
+    updateInitialNarrative(lat, lng);
     });
 
     // Input field change events
@@ -270,6 +299,11 @@ document.addEventListener("DOMContentLoaded", function() {
         const lng = parseFloat(document.getElementById('longitude').value);
 
         if (!isNaN(lat) && !isNaN(lng)) {
+            if (!javaBounds.contains(L.latLng(lat, lng))) {
+                alert('Koordinat yang dimasukkan berada di luar Pulau Jawa.');
+                return;
+            }
+
             if (marker) {
                 marker.setLatLng([lat, lng]);
             } else {
@@ -290,6 +324,13 @@ document.addEventListener("DOMContentLoaded", function() {
                 function(position) {
                     const lat = position.coords.latitude.toFixed(6);
                     const lng = position.coords.longitude.toFixed(6);
+
+                    if (!javaBounds.contains(L.latLng(parseFloat(lat), parseFloat(lng)))) {
+                        alert('Lokasi Anda saat ini berada di luar Pulau Jawa. Sistem ini hanya mendukung analisis untuk wilayah Pulau Jawa.');
+                        document.getElementById('myLocationBtn').disabled = false;
+                        document.getElementById('myLocationBtn').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>Gunakan Lokasi Saya';
+                        return;
+                    }
 
                     document.getElementById('latitude').value = lat;
                     document.getElementById('longitude').value = lng;
@@ -352,13 +393,13 @@ document.addEventListener("DOMContentLoaded", function() {
         const errors = [];
         if (!lat || isNaN(lat)) {
             errors.push('Lintang (Latitude) wajib diisi dengan angka valid.');
-        } else if (lat < -11 || lat > 6) {
-            errors.push('Lintang harus antara -11 sampai 6 (wilayah Indonesia).');
+        } else if (lat < -8.8 || lat > -5.8) {
+            errors.push('Lintang harus antara -8.8 sampai -5.8 (wilayah Pulau Jawa).');
         }
         if (!lng || isNaN(lng)) {
             errors.push('Bujur (Longitude) wajib diisi dengan angka valid.');
-        } else if (lng < 95 || lng > 141) {
-            errors.push('Bujur harus antara 95 sampai 141 (wilayah Indonesia).');
+        } else if (lng < 105.0 || lng > 114.6) {
+            errors.push('Bujur harus antara 105.0 sampai 114.6 (wilayah Pulau Jawa).');
         }
 
         if (errors.length > 0) {
@@ -418,11 +459,22 @@ document.addEventListener("DOMContentLoaded", function() {
     function displayResults(data) {
         const results = data.data;
 
-        // Update narrative
+    if (results.requires_detailed_study) {
+        document.getElementById('detailedStudyWarningText').textContent = results.warning_message;
+        document.getElementById('detailedStudyWarningSiteClass').textContent = results.site_class || '-';
+        document.getElementById('detailedStudyWarning').classList.remove('hidden');
+        document.getElementById('resultsSection').classList.add('hidden');
         document.getElementById('narrative').innerHTML = `<p>${data.narrative}</p>`;
+        document.getElementById('detailedStudyWarning').scrollIntoView({ behavior: 'smooth' });
+        return;
+    }
+    document.getElementById('detailedStudyWarning').classList.add('hidden');
 
-        // Show results section and populate table
-        document.getElementById('resultsSection').classList.remove('hidden');
+    // Update narrative
+    document.getElementById('narrative').innerHTML = `<p>${data.narrative}</p>`;
+
+    // Show results section and populate table
+    document.getElementById('resultsSection').classList.remove('hidden');
 
         const tableBody = document.getElementById('resultsTableBody');
         tableBody.innerHTML = '';
