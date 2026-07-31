@@ -209,6 +209,20 @@
                         <!-- Narrative will be populated via JavaScript -->
                     </div>
                 </div>
+
+                <form id="downloadReportForm" method="POST" action="{{ route('download.report') }}" class="mt-4">
+                    @csrf
+                    <input type="hidden" name="result_data" id="resultDataInput">
+                    <button
+                        type="submit"
+                        class="w-full px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition font-semibold flex items-center justify-center"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Unduh Laporan (PDF)
+                    </button>
+                </form>
             </div>
         </div>
     </div>
@@ -511,6 +525,9 @@ document.addEventListener("DOMContentLoaded", function() {
     }
     document.getElementById('detailedStudyWarning').classList.add('hidden');
 
+    // Simpan data hasil untuk fitur unduh laporan PDF
+    document.getElementById('resultDataInput').value = JSON.stringify(results);
+    
     // Update warna marker sesuai kategori risiko hasil perhitungan
     if (marker) {
         marker.setIcon(createColoredIcon(getRiskColor(results.risk_category)));
