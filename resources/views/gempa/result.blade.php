@@ -28,8 +28,8 @@
                             id="latitude"
                             name="latitude"
                             step="any"
-                            min="-11"
-                            max="6"
+                            min="-8.8"
+                            max="-5.8"
                             value="{{ $result['latitude'] }}"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                         >
@@ -45,8 +45,8 @@
                             id="longitude"
                             name="longitude"
                             step="any"
-                            min="95"
-                            max="141"
+                            min="105.0"
+                            max="114.6"
                             value="{{ $result['longitude'] }}"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                         >
@@ -115,8 +115,8 @@
                                     <td class="px-3 py-3 text-sm text-blue-600 font-bold">{{ $result['pga'] }} g</td>
                                 </tr>
                                 <tr class="bg-blue-50">
-                                    <td class="px-3 py-3 text-sm font-medium text-gray-900">Skala MMI</td>
-                                    <td class="px-3 py-3 text-sm text-blue-600 font-bold">{{ $result['mmi'] }} - {{ $mmiDescription }}</td>
+                                    <td class="px-3 py-3 text-sm font-medium text-gray-900">Skala SIG-BMKG</td>
+                                    <td class="px-3 py-3 text-sm text-blue-600 font-bold">{{ $result['sig_bmkg_scale'] }} - {{ $sigBmkgDescription }}</td>
                                 </tr>
                                 <tr class="bg-blue-50">
                                     <td class="px-3 py-3 text-sm font-medium text-gray-900">Kategori Risiko</td>
@@ -213,9 +213,10 @@
     // Initialize map
     const map = L.map('map').setView([{{ $result['latitude'] }}, {{ $result['longitude'] }}], 12);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 18,
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19,
     }).addTo(map);
 
     // Add marker
@@ -226,7 +227,7 @@
         Bujur: {{ $result['longitude'] }}<br>
         <hr>
         PGA: {{ $result['pga'] }} g<br>
-        MMI: {{ $result['mmi'] }}<br>
+        Skala SIG-BMKG: {{ $result['sig_bmkg_scale'] }}<br>
         Risiko: {{ $result['risk_category'] }}
     `).openPopup();
 

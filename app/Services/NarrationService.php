@@ -4,19 +4,8 @@ namespace App\Services;
 
 use App\Models\NarrationTemplate;
 
-/**
- * Service class for generating narrative text from calculation results
- * Uses template-based text generation with placeholder substitution
- */
 class NarrationService
 {
-    /**
-     * Generate narrative text from calculation results
-     *
-     * @param array $calculationResult Result from GempaCalculationService::calculate()
-     * @param string|null $templateName Optional template name to use
-     * @return string Generated narrative text
-     */
     public function generateNarrative(array $calculationResult, ?string $templateName = null): string
     {
         $template = $this->getTemplate($templateName);
@@ -28,12 +17,6 @@ class NarrationService
         return $this->fillTemplate($template->template, $calculationResult);
     }
 
-    /**
-     * Get template by name or active default
-     *
-     * @param string|null $templateName
-     * @return NarrationTemplate|null
-     */
     protected function getTemplate(?string $templateName): ?NarrationTemplate
     {
         if ($templateName) {
@@ -43,19 +26,14 @@ class NarrationService
         return NarrationTemplate::active()->first();
     }
 
-    /**
-     * Fill template placeholders with actual values
-     *
-     * @param string $template Template string with {placeholder} syntax
-     * @param array $data Data to fill placeholders
-     * @return string Filled template
-     */
     protected function fillTemplate(string $template, array $data): string
     {
         $narrative = $template;
 
-        // Replace all placeholders with actual values
         foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                continue; // lewati field non-skalar seperti spgs_recommendations, nearest_earthquakes
+            }
             $placeholder = '{' . $key . '}';
             $displayValue = $this->formatValue($key, $value);
             $narrative = str_replace($placeholder, $displayValue, $narrative);
@@ -64,26 +42,18 @@ class NarrationService
         return $narrative;
     }
 
-    /**
-     * Format value for display in narrative
-     *
-     * @param string $key Parameter key
-     * @param mixed $value Parameter value
-     * @return string Formatted value
-     */
     protected function formatValue(string $key, mixed $value): string
     {
-        // Handle null values
         if ($value === null) {
             return 'N/A';
         }
 
-        // Format based on parameter type
         return match ($key) {
             'latitude' => number_format($value, 6),
             'longitude' => number_format($value, 6),
             'ss', 's1', 'fa', 'fv', 'sms', 'sm1', 'sds', 'sd1', 'pga' => number_format($value, 4),
-            'mmi' => number_format($value, 1),
+            'pga_gal' => number_format($value, 2) . ' gal',
+            'sig_bmkg_scale' => (string) $value,
             'risk_category' => $value,
             'kds' => strtoupper($value),
             'site_class' => strtoupper($value),
@@ -91,36 +61,24 @@ class NarrationService
         };
     }
 
-    /**
-     * Generate default narrative when no template is available
-     *
-     * @param array $calculationResult
-     * @return string Default narrative text
-     */
     protected function generateDefaultNarrative(array $calculationResult): string
     {
         $lat = $this->formatValue('latitude', $calculationResult['latitude']);
         $lon = $this->formatValue('longitude', $calculationResult['longitude']);
         $pga = $this->formatValue('pga', $calculationResult['pga']);
-        $mmi = $this->formatValue('mmi', $calculationResult['mmi']);
+        $pgaGal = $this->formatValue('pga_gal', $calculationResult['pga_gal']);
+        $sigBmkgScale = $calculationResult['sig_bmkg_scale'];
         $riskCategory = $calculationResult['risk_category'];
         $kds = $this->formatValue('kds', $calculationResult['kds']);
 
         $narrative = "Analisis risiko gempa untuk koordinat {$lat}° LS, {$lon}° BT ";
-        $narrative .= "menghasilkan nilai PGA sebesar {$pga}g yang setara dengan skala MMI {$mmi}. ";
+        $narrative .= "menghasilkan nilai PGA sebesar {$pga}g ({$pgaGal}) yang termasuk dalam Skala SIG-BMKG {$sigBmkgScale}. ";
         $narrative .= "Lokasi ini dikategorikan sebagai '{$riskCategory}' ";
         $narrative .= "dengan Kategori Desain Seismik (KDS) {$kds}.";
 
         return $narrative;
     }
 
-    /**
-     * Generate initial/preview narrative before calculation
-     *
-     * @param float|null $latitude
-     * @param float|null $longitude
-     * @return string Initial narrative text
-     */
     public function generateInitialNarrative(?float $latitude, ?float $longitude): string
     {
         if ($latitude === null || $longitude === null) {
@@ -134,38 +92,25 @@ class NarrationService
     }
 
     /**
-     * Generate MMI scale description for a given MMI value
+     * Deskripsi Skala SIG-BMKG.
      *
-     * @param float $mmi MMI value
-     * @return string MMI scale description in Indonesian
+     * CATATAN: teks deskripsi ini adalah sintesis umum berdasarkan
+     * padanan skala MMI standar, BUKAN kutipan resmi dari dokumen BMKG.
+     * Sebaiknya ganti dengan teks resmi BMKG kalau kamu punya sumbernya,
+     * supaya akurat untuk dikutip di skripsi.
      */
-    public function getMmiDescription(float $mmi): string
+    public function getSigBmkgDescription(string $scale): string
     {
-        $mmiInt = (int) round($mmi);
-
-        return match ($mmiInt) {
-            1 => 'I - Tidak Terasa',
-            2 => 'II - Terasa Ringan',
-            3 => 'III - Lemah',
-            4 => 'IV - Sedang',
-            5 => 'V - Agak Kuat',
-            6 => 'VI - Kuat',
-            7 => 'VII - Sangat Kuat',
-            8 => 'VIII - Merusak',
-            9 => 'IX - Sangat Merusak',
-            10 => 'X - Hebat',
-            11 => 'XI - Sangat Hebat',
-            12 => 'XII - Ekstem',
-            default => 'N/A',
+        return match ($scale) {
+            'I' => 'I - Getaran sangat lemah, umumnya tidak dirasakan masyarakat (setara MMI I-II).',
+            'II' => 'II - Getaran ringan dirasakan sebagian orang, benda ringan dapat bergoyang (setara MMI III-V).',
+            'III' => 'III - Getaran dirasakan hampir semua orang, kerusakan ringan mungkin terjadi (setara MMI VI).',
+            'IV' => 'IV - Getaran kuat, kerusakan ringan hingga sedang pada bangunan (setara MMI VII-VIII).',
+            'V' => 'V - Getaran sangat kuat, berpotensi kerusakan berat hingga keruntuhan bangunan (setara MMI IX-XII).',
+            default => 'Skala tidak diketahui.',
         };
     }
 
-    /**
-     * Generate risk category description
-     *
-     * @param string $riskCategory
-     * @return string Detailed risk description
-     */
     public function getRiskCategoryDescription(string $riskCategory): string
     {
         return match ($riskCategory) {

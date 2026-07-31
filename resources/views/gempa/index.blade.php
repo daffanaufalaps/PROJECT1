@@ -480,8 +480,8 @@ document.addEventListener("DOMContentLoaded", function() {
         tableBody.innerHTML = '';
 
         const rows = [
-            { param: 'PGA (Peak Ground Acceleration)', value: results.pga + ' g', desc: 'Percepatan puncak tanah' },
-            { param: 'Skala MMI', value: results.mmi, desc: data.mmi_description },
+            { param: 'PGA (Peak Ground Acceleration)', value: results.pga + ' g (' + results.pga_gal + ' gal)', desc: 'Percepatan puncak tanah' },
+            { param: 'Skala SIG-BMKG', value: results.sig_bmkg_scale + ' (setara MMI ' + results.sig_bmkg_mmi_equivalent + ')', desc: data.sig_bmkg_description },
             { param: 'Kategori Risiko', value: results.risk_category, desc: data.risk_description },
             { param: 'KDS (Kategori Desain Seismik)', value: results.kds, desc: 'Kategori desain seismik sesuai SNI 1726:2019' },
         ];
@@ -522,6 +522,40 @@ document.addEventListener("DOMContentLoaded", function() {
             `;
             tableBody.appendChild(tr);
         });
+
+        // Rekomendasi SPGS
+        if (results.spgs_recommendations && results.spgs_recommendations.length > 0) {
+            const spgsSeparator = document.createElement('tr');
+            spgsSeparator.innerHTML = `<td colspan="3" class="px-4 py-2 bg-gray-50 text-sm font-semibold text-gray-700">Rekomendasi Sistem Pemikul Gaya Seismik (SPGS)</td>`;
+            tableBody.appendChild(spgsSeparator);
+
+            results.spgs_recommendations.forEach(spgs => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-4 py-3 text-sm font-medium text-gray-900">${spgs.sistem} (${spgs.kode})</td>
+                    <td class="px-4 py-3 text-sm text-gray-700" colspan="2">${spgs.keterangan}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // Gempa historis terdekat
+        if (results.nearest_earthquakes && results.nearest_earthquakes.length > 0) {
+            const eqSeparator = document.createElement('tr');
+            eqSeparator.innerHTML = `<td colspan="3" class="px-4 py-2 bg-gray-50 text-sm font-semibold text-gray-700">Gempa Historis Terdekat</td>`;
+            tableBody.appendChild(eqSeparator);
+
+            results.nearest_earthquakes.forEach(eq => {
+                const tr = document.createElement('tr');
+                const distance = eq.distance_km ? parseFloat(eq.distance_km).toFixed(1) : '-';
+                const date = eq.origin_time ? new Date(eq.origin_time).toLocaleDateString('id-ID') : '-';
+                tr.innerHTML = `
+                    <td class="px-4 py-3 text-sm font-medium text-gray-900">M${eq.magnitude} — ${date}</td>
+                    <td class="px-4 py-3 text-sm text-gray-700" colspan="2">Berjarak ${distance} km dari lokasi, kedalaman ${eq.depth} km</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
 
         // Update result narrative
         document.getElementById('resultNarrative').innerHTML = `<p>${data.narrative}</p>`;

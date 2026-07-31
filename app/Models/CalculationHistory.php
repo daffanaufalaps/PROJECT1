@@ -25,7 +25,7 @@ class CalculationHistory extends Model
         'sds',
         'sd1',
         'pga',
-        'mmi',
+        'sig_bmkg_scale',
         'risk_category',
         'kds',
         'narration',

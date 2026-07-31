@@ -11,31 +11,27 @@ use Illuminate\Support\Facades\Log;
 /**
  * Service class for earthquake risk calculation based on SNI 1726:2019
  *
- * Ss, S1, PGA, Vs30, dan Kelas Situs otomatis diperoleh dari backend
- * hazard API (project WEBGIS-SNI-DSS). Perhitungan turunan (Fa, Fv,
- * SMs, SM1, SDs, SD1, MMI, kategori risiko, KDS) tetap dilakukan di
- * service ini (server-side), sesuai arsitektur pada skripsi Bab 3.3.2
- * bahwa seluruh analisis dilakukan di sisi server.
+ * Ss, S1, PGA, Vs30, dan Kelas Situs diperoleh dari backend hazard API
+ * (project WEBGIS-SNI-DSS) sebagai data grid statis hasil pra-proses
+ * (georeferensi RSA PUPR via QGIS) — bukan perhitungan GMPE dinamis.
+ *
+ * Interpretasi dampak memakai Skala SIG-BMKG (Tabel 2.1) dengan metode
+ * klasifikasi interval, BUKAN regresi empiris, sesuai metodologi yang
+ * dituliskan di Bab 2.3.
  */
 class GempaCalculationService
 {
-    /**
-     * Perform complete calculation for a given coordinate
-     *
-     * @param float $latitude
-     * @param float $longitude
-     * @param string|null $siteClassOverride Kelas Situs manual dari user (opsional).
-     *        Null/kosong berarti pakai soil_class otomatis dari backend.
-     */
     public function calculate(float $latitude, float $longitude, ?string $siteClassOverride = null): array
     {
-        // Normalisasi: string kosong dari form dianggap "tidak override"
         $siteClassOverride = ($siteClassOverride !== null && $siteClassOverride !== '')
             ? strtoupper($siteClassOverride)
             : null;
 
-        // Step 1: Ambil data hazard lengkap dari backend (Ss, S1, PGA, Vs30, Kelas Situs)
+        // Step 1: Ambil data hazard lengkap dari backend (grid statis: Ss, S1, PGA, Vs30, Kelas Situs)
         $hazard = $this->getHazardDataFromCoordinate($latitude, $longitude);
+
+        // Step 1b: Ambil data gempa historis terdekat (informasi pendukung, tidak memengaruhi hitungan)
+        $nearestEarthquakes = $this->getNearestEarthquakes($latitude, $longitude);
 
         // Step 2: Tentukan apakah user melakukan override Kelas Situs
         $isOverridden = $siteClassOverride !== null && $siteClassOverride !== $hazard['soil_class'];
@@ -64,10 +60,14 @@ class GempaCalculationService
                 'sds' => null,
                 'sd1' => null,
                 'pga' => null,
+                'pga_gal' => null,
                 'pga_source' => null,
-                'mmi' => null,
+                'sig_bmkg_scale' => null,
+                'sig_bmkg_mmi_equivalent' => null,
                 'risk_category' => null,
                 'kds' => null,
+                'spgs_recommendations' => [],
+                'nearest_earthquakes' => $nearestEarthquakes,
                 'requires_detailed_study' => true,
                 'warning_message' => 'Diperlukan penghitungan yang lebih mendetail terhadap lokasi Anda.',
             ];
@@ -94,14 +94,17 @@ class GempaCalculationService
             $pgaSource = 'backend';
         }
 
-        // Step 7: Konversi PGA ke MMI
-        $mmi = $this->convertPgaToMmi($pga);
+        // Step 7: Konversi PGA ke Skala SIG-BMKG (Tabel 2.1) — klasifikasi interval, bukan regresi
+        $sigBmkg = $this->convertPgaToSigBmkg($pga);
 
-        // Step 8: Tentukan Kategori Risiko
-        $riskCategory = $this->determineRiskCategory($pga, $mmi);
+        // Step 8: Tentukan Kategori Risiko berdasarkan Skala SIG-BMKG
+        $riskCategory = $this->determineRiskCategory($sigBmkg['scale']);
 
         // Step 9: Tentukan KDS
         $kds = $this->determineKds($sds, $sd1, $riskCategory);
+
+        // Step 10: Rekomendasi SPGS berdasarkan KDS (Lampiran 2)
+        $spgsRecommendations = $this->determineSpgsRecommendations($kds);
 
         $result = [
             'latitude' => $latitude,
@@ -119,10 +122,14 @@ class GempaCalculationService
             'sds' => round($sds, 4),
             'sd1' => round($sd1, 4),
             'pga' => round($pga, 4),
+            'pga_gal' => $sigBmkg['pga_gal'],
             'pga_source' => $pgaSource,
-            'mmi' => round($mmi, 2),
+            'sig_bmkg_scale' => $sigBmkg['scale'],
+            'sig_bmkg_mmi_equivalent' => $sigBmkg['mmi_equivalent'],
             'risk_category' => $riskCategory,
             'kds' => $kds,
+            'spgs_recommendations' => $spgsRecommendations,
+            'nearest_earthquakes' => $nearestEarthquakes,
             'requires_detailed_study' => false,
         ];
 
@@ -133,7 +140,8 @@ class GempaCalculationService
 
     /**
      * Ambil data hazard lengkap (Ss, S1, PGA, Vs30, Kelas Situs) dari
-     * backend hazard API (project WEBGIS-SNI-DSS).
+     * backend hazard API (project WEBGIS-SNI-DSS) — data grid statis
+     * hasil georeferensi RSA PUPR, bukan komputasi GMPE real-time.
      */
     public function getHazardDataFromCoordinate(float $latitude, float $longitude): array
     {
@@ -145,7 +153,7 @@ class GempaCalculationService
 
             if ($response->successful()) {
                 $body = $response->json();
-                $rows = $body['data'] ?? $body; // fleksibel: wrapped atau tidak
+                $rows = $body['data'] ?? $body;
 
                 if (!empty($rows) && isset($rows[0])) {
                     $row = $rows[0];
@@ -161,7 +169,7 @@ class GempaCalculationService
                 }
             }
 
-            Log::warning("Backend hazard API tidak mengembalikan data untuk koordinat: {$latitude},{$longitude}");
+            Log::warning("Backend hazard API tidak mengembalikan data untuk koordinat: {$latitude},{$longitude}. Status: " . ($response->status() ?? 'tidak ada response') . ". Body: " . $response->body());
 
         } catch (\Exception $e) {
             Log::error('Gagal menghubungi backend hazard API: ' . $e->getMessage());
@@ -177,6 +185,32 @@ class GempaCalculationService
         ];
     }
 
+    /**
+     * Ambil daftar gempa historis terdekat dari backend (tabel earthquake_history).
+     * Gagal koneksi tidak menghentikan proses utama -- cukup kembalikan array kosong.
+     */
+    public function getNearestEarthquakes(float $latitude, float $longitude, int $limit = 5, float $radiusKm = 500): array
+    {
+        try {
+            $response = Http::timeout(5)->get(
+                config('services.hazard_api.base_url') . '/nearest-earthquakes',
+                ['lon' => $longitude, 'lat' => $latitude, 'limit' => $limit, 'radius_km' => $radiusKm]
+            );
+
+            if ($response->successful()) {
+                $body = $response->json();
+                return $body['data'] ?? [];
+            }
+
+            Log::warning("Backend tidak mengembalikan data gempa historis untuk koordinat: {$latitude},{$longitude}");
+
+        } catch (\Exception $e) {
+            Log::error('Gagal menghubungi endpoint nearest-earthquakes: ' . $e->getMessage());
+        }
+
+        return [];
+    }
+
     public function calculateFa(float $ss, string $siteClass): ?float
     {
         $faValue = FaFactor::findFaValue($siteClass, $ss);
@@ -185,9 +219,6 @@ class GempaCalculationService
             return $faValue;
         }
 
-    // Fallback sementara selama tabel fa_factors belum terisi data resmi SNI.
-    // Kelas Situs F (atau kelas tak dikenal) TIDAK diberi tebakan angka,
-    // karena SNI 1726:2019 mewajibkan kajian spesifik lokasi untuk kelas ini.
         return match ($siteClass) {
             'A' => 0.8,
             'B' => 1.0,
@@ -241,32 +272,56 @@ class GempaCalculationService
         return max(0.4 * $ss, 0.4 * $sms);
     }
 
-    public function convertPgaToMmi(float $pga): float
+    /**
+     * Konversi PGA (satuan g) ke Skala Intensitas Gempa Bumi BMKG (SIG-BMKG)
+     * menggunakan metode klasifikasi berbasis interval sesuai Tabel 2.1 —
+     * BUKAN regresi empiris (mis. Wald et al.), sesuai metodologi Bab 2.3.
+     *
+     * @return array{scale: string, mmi_equivalent: string, pga_gal: float}
+     */
+    public function convertPgaToSigBmkg(float $pgaInG): array
     {
-        if ($pga <= 0) {
-            return 1.0;
+        // 1 g = 980,665 gal (percepatan gravitasi standar)
+        $pgaGal = $pgaInG * 980.665;
+
+        if ($pgaGal < 2.9) {
+            $scale = 'I';
+            $mmiEquivalent = '1-2';
+        } elseif ($pgaGal < 89) {
+            $scale = 'II';
+            $mmiEquivalent = '3-5';
+        } elseif ($pgaGal < 168) {
+            $scale = 'III';
+            $mmiEquivalent = '6';
+        } elseif ($pgaGal < 565) {
+            $scale = 'IV';
+            $mmiEquivalent = '7-8';
+        } else {
+            $scale = 'V';
+            $mmiEquivalent = '9-12';
         }
 
-        $pgaPercent = $pga * 100;
-        $mmi = 3.78 * log10($pgaPercent) + 1.47;
-        $mmi = max(1, min(12, $mmi));
-
-        return round($mmi * 2) / 2;
+        return [
+            'scale' => $scale,
+            'mmi_equivalent' => $mmiEquivalent,
+            'pga_gal' => round($pgaGal, 2),
+        ];
     }
 
-    public function determineRiskCategory(float $pga, float $mmi): string
+    /**
+     * Kategori risiko diturunkan langsung dari Skala SIG-BMKG,
+     * supaya satu sumber klasifikasi dipakai konsisten di seluruh sistem.
+     */
+    public function determineRiskCategory(string $sigBmkgScale): string
     {
-        if ($pga >= 0.6 || $mmi >= 9.0) {
-            return 'Risiko Sangat Tinggi';
-        } elseif ($pga >= 0.4 || $mmi >= 7.5) {
-            return 'Risiko Tinggi';
-        } elseif ($pga >= 0.2 || $mmi >= 6.0) {
-            return 'Risiko Sedang';
-        } elseif ($pga >= 0.1 || $mmi >= 5.0) {
-            return 'Risiko Rendah';
-        } else {
-            return 'Risiko Sangat Rendah';
-        }
+        return match ($sigBmkgScale) {
+            'I' => 'Risiko Sangat Rendah',
+            'II' => 'Risiko Rendah',
+            'III' => 'Risiko Sedang',
+            'IV' => 'Risiko Tinggi',
+            'V' => 'Risiko Sangat Tinggi',
+            default => 'Risiko Tidak Diketahui',
+        };
     }
 
     public function determineKds(float $sds, float $sd1, string $riskCategory): string
@@ -286,6 +341,49 @@ class GempaCalculationService
         }
     }
 
+    /**
+     * Rekomendasi Sistem Pemikul Gaya Seismik (SPGS) berdasarkan KDS,
+     * sesuai Lampiran 2.
+     */
+    public function determineSpgsRecommendations(string $kds): array
+    {
+        $table = [
+            'A' => [
+                ['sistem' => 'SRPM Biasa', 'kode' => 'SRPMB', 'keterangan' => 'Daerah bahaya rendah'],
+                ['sistem' => 'Dinding Struktur Biasa', 'kode' => 'SDSB', 'keterangan' => 'Bangunan sederhana'],
+            ],
+            'B' => [
+                ['sistem' => 'SRPM Biasa', 'kode' => 'SRPMB', 'keterangan' => 'Masih diperbolehkan'],
+                ['sistem' => 'SRPM Menengah', 'kode' => 'SRPMM', 'keterangan' => 'Lebih baik'],
+                ['sistem' => 'SRPM Khusus', 'kode' => 'SRPMK', 'keterangan' => 'Sangat baik'],
+                ['sistem' => 'Dinding Struktur Biasa', 'kode' => 'SDSB', 'keterangan' => 'Alternatif'],
+                ['sistem' => 'Dinding Struktur Khusus', 'kode' => 'SDSK', 'keterangan' => 'Alternatif'],
+            ],
+            'C' => [
+                ['sistem' => 'SRPM Menengah', 'kode' => 'SRPMM', 'keterangan' => 'Direkomendasikan'],
+                ['sistem' => 'SRPM Khusus', 'kode' => 'SRPMK', 'keterangan' => 'Direkomendasikan'],
+                ['sistem' => 'Dinding Struktur Khusus', 'kode' => 'SDSK', 'keterangan' => 'Untuk bangunan tinggi'],
+            ],
+            'D' => [
+                ['sistem' => 'SRPM Khusus', 'kode' => 'SRPMK', 'keterangan' => 'Wajib untuk sistem rangka momen beton'],
+                ['sistem' => 'Dinding Struktur Khusus', 'kode' => 'SDSK', 'keterangan' => 'Direkomendasikan'],
+                ['sistem' => 'Sistem Ganda', 'kode' => 'DUAL', 'keterangan' => 'Sangat direkomendasikan'],
+            ],
+            'E' => [
+                ['sistem' => 'SRPM Khusus', 'kode' => 'SRPMK', 'keterangan' => 'Wajib'],
+                ['sistem' => 'Dinding Struktur Khusus', 'kode' => 'SDSK', 'keterangan' => 'Wajib bila memakai dinding'],
+                ['sistem' => 'Sistem Ganda', 'kode' => 'DUAL', 'keterangan' => 'Sangat direkomendasikan'],
+            ],
+            'F' => [
+                ['sistem' => 'SRPM Khusus', 'kode' => 'SRPMK', 'keterangan' => 'Wajib'],
+                ['sistem' => 'Dinding Struktur Khusus', 'kode' => 'SDSK', 'keterangan' => 'Wajib'],
+                ['sistem' => 'Sistem Ganda', 'kode' => 'DUAL', 'keterangan' => 'Direkomendasikan'],
+            ],
+        ];
+
+        return $table[$kds] ?? [];
+    }
+
     protected function saveHistory(array $result): CalculationHistory
     {
         return CalculationHistory::create([
@@ -300,7 +398,7 @@ class GempaCalculationService
             'sds' => $result['sds'],
             'sd1' => $result['sd1'],
             'pga' => $result['pga'],
-            'mmi' => $result['mmi'],
+            'sig_bmkg_scale' => $result['sig_bmkg_scale'],
             'risk_category' => $result['risk_category'],
             'kds' => $result['kds'],
         ]);

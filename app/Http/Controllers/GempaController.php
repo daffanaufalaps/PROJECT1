@@ -16,9 +16,6 @@ class GempaController extends Controller
         protected NarrationService $narrationService
     ) {}
 
-    /**
-     * Show the main calculation page (Page 1 - Input)
-     */
     public function index(Request $request): View
     {
         $latitude = $request->input('lat') ? (float) $request->input('lat') : null;
@@ -33,30 +30,23 @@ class GempaController extends Controller
         ]);
     }
 
-    /**
-     * Build narrative/description data, dengan penanganan khusus saat
-     * lokasi membutuhkan kajian lebih mendetail (mis. Kelas Situs F).
-     */
     protected function buildNarrativeData(array $result): array
     {
         if ($result['requires_detailed_study'] ?? false) {
             return [
                 'narrative' => $result['warning_message'],
-                'mmi_description' => null,
+                'sig_bmkg_description' => null,
                 'risk_description' => null,
             ];
         }
 
         return [
             'narrative' => $this->narrationService->generateNarrative($result),
-            'mmi_description' => $this->narrationService->getMmiDescription($result['mmi']),
+            'sig_bmkg_description' => $this->narrationService->getSigBmkgDescription($result['sig_bmkg_scale']),
             'risk_description' => $this->narrationService->getRiskCategoryDescription($result['risk_category']),
         ];
     }
 
-    /**
-     * Perform calculation and show results page (Page 2 - Results)
-     */
     public function calculate(CalculateRequest $request): View|JsonResponse
     {
         $latitude = (float) $request->latitude;
@@ -70,7 +60,7 @@ class GempaController extends Controller
             'success' => true,
             'data' => $result,
             'narrative' => $narrativeData['narrative'],
-            'mmi_description' => $narrativeData['mmi_description'],
+            'sig_bmkg_description' => $narrativeData['sig_bmkg_description'],
             'risk_description' => $narrativeData['risk_description'],
         ];
 
@@ -81,14 +71,11 @@ class GempaController extends Controller
         return view('gempa.result', [
             'result' => $result,
             'narrative' => $narrativeData['narrative'],
-            'mmiDescription' => $narrativeData['mmi_description'],
+            'sigBmkgDescription' => $narrativeData['sig_bmkg_description'],
             'riskDescription' => $narrativeData['risk_description'],
         ]);
     }
 
-    /**
-     * API endpoint for calculation (POST /api/hitung)
-     */
     public function apiCalculate(CalculateRequest $request): JsonResponse
     {
         $latitude = (float) $request->latitude;
@@ -103,7 +90,7 @@ class GempaController extends Controller
                 'success' => true,
                 'data' => $result,
                 'narrative' => $narrativeData['narrative'],
-                'mmi_description' => $narrativeData['mmi_description'],
+                'sig_bmkg_description' => $narrativeData['sig_bmkg_description'],
                 'risk_description' => $narrativeData['risk_description'],
             ]);
         } catch (\Exception $e) {
@@ -115,9 +102,6 @@ class GempaController extends Controller
         }
     }
 
-    /**
-     * Show calculation history (Admin only)
-     */
     public function history(Request $request): View
     {
         $histories = \App\Models\CalculationHistory::orderBy('created_at', 'desc')
