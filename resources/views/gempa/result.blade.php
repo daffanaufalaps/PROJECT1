@@ -168,6 +168,17 @@
                                     <td class="px-3 py-2 text-sm text-gray-700">SD1</td>
                                     <td class="px-3 py-2 text-sm text-gray-900">{{ $result['sd1'] }} g</td>
                                 </tr>
+                                <tr><td colspan="2" class="px-3 py-2 bg-gray-100 text-xs text-gray-500 font-semibold">Rekomendasi Sistem Pemikul Gaya Seismik (SPGS)</td></tr>
+                                @forelse(($result['spgs_recommendations'] ?? []) as $spgs)
+                                <tr>
+                                    <td class="px-3 py-2 text-sm text-gray-700">{{ $spgs['sistem'] }} ({{ $spgs['kode'] }})</td>
+                                    <td class="px-3 py-2 text-sm text-gray-900">{{ $spgs['keterangan'] }}</td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="2" class="px-3 py-2 text-sm text-gray-500 italic">Tidak ada rekomendasi tersedia untuk KDS ini.</td>
+                                </tr>
+                                @endforelse
                             </tbody>
                         </table>
                     </div>
@@ -202,6 +213,42 @@
                     <h4 class="text-sm font-medium text-gray-700 mb-2">Penjelasan Kategori Risiko:</h4>
                     <p class="text-sm text-gray-600">{{ $riskDescription }}</p>
                 </div>
+            </div>
+
+            <!-- Gempa Historis Terdekat -->
+            <div class="bg-white rounded-xl shadow-md p-6 mt-6">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Gempa Historis Terdekat
+                </h2>
+                @if(!empty($result['nearest_earthquakes']))
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-300">
+                        <thead>
+                            <tr>
+                                <th class="px-3 py-2 text-left text-sm font-semibold text-gray-900">Tanggal</th>
+                                <th class="px-3 py-2 text-left text-sm font-semibold text-gray-900">Magnitudo</th>
+                                <th class="px-3 py-2 text-left text-sm font-semibold text-gray-900">Kedalaman</th>
+                                <th class="px-3 py-2 text-left text-sm font-semibold text-gray-900">Jarak</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            @foreach($result['nearest_earthquakes'] as $eq)
+                            <tr>
+                                <td class="px-3 py-2 text-sm text-gray-700">{{ \Carbon\Carbon::parse($eq['origin_time'])->format('d M Y H:i') }}</td>
+                                <td class="px-3 py-2 text-sm text-gray-900 font-medium">M{{ $eq['magnitude'] }} ({{ $eq['magnitude_type'] }})</td>
+                                <td class="px-3 py-2 text-sm text-gray-700">{{ $eq['depth'] }} km</td>
+                                <td class="px-3 py-2 text-sm text-gray-700">{{ number_format($eq['distance_km'], 1) }} km</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @else
+                <p class="text-sm text-gray-500 italic">Tidak ditemukan data gempa historis dalam radius pencarian dari lokasi ini.</p>
+                @endif
             </div>
         </div>
     </div>

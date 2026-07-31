@@ -67,7 +67,7 @@
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                             placeholder="Contoh: 106.8"
                         >
-                        <p class="mt-1 text-xs text-gray-500">Rentang: 95 sampai 141</p>
+                        <p class="mt-1 text-xs text-gray-500">Rentang: 105.0 sampai 114.6 (Pulau Jawa)</p>
                     </div>
 
                     <!-- Site Class Selection (Optional) -->
@@ -559,7 +559,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
         // Update result narrative
         document.getElementById('resultNarrative').innerHTML = `<p>${data.narrative}</p>`;
-
+<p class="mt-1 text-xs text-gray-500">Rentang: -8.8 sampai -5.8 (Pulau Jawa)</p>
         // Scroll to results
         document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
     }

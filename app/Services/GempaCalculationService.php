@@ -213,38 +213,16 @@ class GempaCalculationService
 
     public function calculateFa(float $ss, string $siteClass): ?float
     {
-        $faValue = FaFactor::findFaValue($siteClass, $ss);
-
-        if ($faValue !== null) {
-            return $faValue;
-        }
-
-        return match ($siteClass) {
-            'A' => 0.8,
-            'B' => 1.0,
-            'C' => 1.2,
-            'D' => 1.4,
-            'E' => 1.7,
-            default => null,
-        };
+        // Sepenuhnya mengandalkan Tabel 2.3 (data resmi SNI 1726:2019).
+        // Null berarti kombinasi Kelas Situs/Ss tidak tercakup tabel
+        // (mis. Kelas Situs F), yang berarti butuh kajian lebih mendetail.
+        return FaFactor::findFaValue($siteClass, $ss);
     }
 
     public function calculateFv(float $s1, string $siteClass): ?float
     {
-        $fvValue = FvFactor::findFvValue($siteClass, $s1);
-
-        if ($fvValue !== null) {
-            return $fvValue;
-        }
-
-        return match ($siteClass) {
-            'A' => 0.8,
-            'B' => 1.0,
-            'C' => 1.7,
-            'D' => 2.0,
-            'E' => 3.2,
-            default => null,
-        };
+        // Sepenuhnya mengandalkan Tabel 2.4 (data resmi SNI 1726:2019).
+        return FvFactor::findFvValue($siteClass, $s1);
     }
 
     public function calculateSMs(float $ss, float $fa): float
