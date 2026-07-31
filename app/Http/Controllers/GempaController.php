@@ -102,7 +102,34 @@ class GempaController extends Controller
         }
     }
 
+    /**
+     * Generate dan unduh laporan hasil analisis dalam bentuk PDF.
+     * Menerima data hasil (result_data) yang sudah dihitung sebelumnya,
+     * tidak menghitung ulang -- supaya tidak membuat entri histori duplikat.
+     */
+    public function downloadReport(Request $request)
+    {
+        $result = json_decode($request->input('result_data'), true);
+
+        if (!$result) {
+            abort(400, 'Data hasil analisis tidak valid atau tidak ditemukan.');
+        }
+
+        $narrativeData = $this->buildNarrativeData($result);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('gempa.report-pdf', [
+            'result' => $result,
+            'narrative' => $narrativeData['narrative'],
+            'riskDescription' => $narrativeData['risk_description'],
+        ])->setPaper('a4');
+
+        $filename = 'Laporan-Risiko-Gempa-' . now()->format('Ymd-His') . '.pdf';
+
+        return $pdf->download($filename);
+    }
+
     public function history(Request $request): View
+    
     {
         $histories = \App\Models\CalculationHistory::orderBy('created_at', 'desc')
             ->paginate(20);

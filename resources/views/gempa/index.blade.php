@@ -243,13 +243,57 @@ document.addEventListener("DOMContentLoaded", function() {
         maxZoom: 19,
     }).addTo(map);
 
-    // Custom marker icon
-    const customIcon = L.divIcon({
-        className: 'custom-marker',
-        html: `<div style="background-color: #2563eb; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-    });
+    // Warna marker berdasarkan kategori risiko
+    function getRiskColor(riskCategory) {
+        switch (riskCategory) {
+            case 'Risiko Sangat Rendah': return '#22c55e'; // hijau
+            case 'Risiko Rendah':        return '#84cc16'; // hijau muda
+            case 'Risiko Sedang':        return '#eab308'; // kuning
+            case 'Risiko Tinggi':        return '#f97316'; // oranye
+            case 'Risiko Sangat Tinggi': return '#dc2626'; // merah
+            default:                    return '#2563eb'; // biru (belum dihitung)
+        }
+    }
+
+    function createColoredIcon(color) {
+        return L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+        });
+    }
+
+    // Custom marker icon (default biru sebelum ada hasil perhitungan)
+    const customIcon = createColoredIcon('#2563eb');
+
+    // Legenda kategori risiko
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function () {
+        const div = L.DomUtil.create('div', 'info legend');
+        div.style.background = 'white';
+        div.style.padding = '10px 12px';
+        div.style.borderRadius = '8px';
+        div.style.boxShadow = '0 1px 4px rgba(0,0,0,0.3)';
+        div.style.fontSize = '12px';
+        div.style.lineHeight = '1.6';
+
+        const categories = [
+            { label: 'Sangat Rendah', color: '#22c55e' },
+            { label: 'Rendah',        color: '#84cc16' },
+            { label: 'Sedang',        color: '#eab308' },
+            { label: 'Tinggi',        color: '#f97316' },
+            { label: 'Sangat Tinggi', color: '#dc2626' },
+        ];
+
+        let html = '<strong>Kategori Risiko</strong><br>';
+        categories.forEach(cat => {
+            html += `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${cat.color};margin-right:6px;vertical-align:middle;"></span>${cat.label}<br>`;
+        });
+        div.innerHTML = html;
+        return div;
+    };
+    legend.addTo(map);
 
     // Initialize marker
     let marker = null;
@@ -466,6 +510,11 @@ document.addEventListener("DOMContentLoaded", function() {
         return;
     }
     document.getElementById('detailedStudyWarning').classList.add('hidden');
+
+    // Update warna marker sesuai kategori risiko hasil perhitungan
+    if (marker) {
+        marker.setIcon(createColoredIcon(getRiskColor(results.risk_category)));
+    }
 
     // Update narrative
     document.getElementById('narrative').innerHTML = `<p>${data.narrative}</p>`;

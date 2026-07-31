@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Route;
 // Main application - Earthquake Risk Analysis
 Route::get('/', [GempaController::class, 'index'])->name('home');
 Route::post('/hitung', [GempaController::class, 'calculate'])->name('calculate');
+Route::post('/unduh-laporan', [GempaController::class, 'downloadReport'])->name('download.report');
 
 /*
 |--------------------------------------------------------------------------

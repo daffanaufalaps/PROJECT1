@@ -85,6 +85,20 @@
                         &larr; Kembali ke halaman utama
                     </a>
                 </div>
+
+                <form method="POST" action="{{ route('download.report') }}" class="mt-3">
+                    @csrf
+                    <input type="hidden" name="result_data" value="{{ json_encode($result) }}">
+                    <button
+                        type="submit"
+                        class="w-full px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition font-semibold flex items-center justify-center"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Unduh Laporan (PDF)
+                    </button>
+                </form>
             </div>
         </div>
 
@@ -266,8 +280,56 @@
         maxZoom: 19,
     }).addTo(map);
 
+    // Warna marker berdasarkan kategori risiko
+    function getRiskColor(riskCategory) {
+        switch (riskCategory) {
+            case 'Risiko Sangat Rendah': return '#22c55e';
+            case 'Risiko Rendah':        return '#84cc16';
+            case 'Risiko Sedang':        return '#eab308';
+            case 'Risiko Tinggi':        return '#f97316';
+            case 'Risiko Sangat Tinggi': return '#dc2626';
+            default:                    return '#2563eb';
+        }
+    }
+
+    const riskColor = getRiskColor(@json($result['risk_category'] ?? ''));
+    const riskIcon = L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="background-color: ${riskColor}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+    });
+
+    // Legenda kategori risiko
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function () {
+        const div = L.DomUtil.create('div', 'info legend');
+        div.style.background = 'white';
+        div.style.padding = '10px 12px';
+        div.style.borderRadius = '8px';
+        div.style.boxShadow = '0 1px 4px rgba(0,0,0,0.3)';
+        div.style.fontSize = '12px';
+        div.style.lineHeight = '1.6';
+
+        const categories = [
+            { label: 'Sangat Rendah', color: '#22c55e' },
+            { label: 'Rendah',        color: '#84cc16' },
+            { label: 'Sedang',        color: '#eab308' },
+            { label: 'Tinggi',        color: '#f97316' },
+            { label: 'Sangat Tinggi', color: '#dc2626' },
+        ];
+
+        let html = '<strong>Kategori Risiko</strong><br>';
+        categories.forEach(cat => {
+            html += `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${cat.color};margin-right:6px;vertical-align:middle;"></span>${cat.label}<br>`;
+        });
+        div.innerHTML = html;
+        return div;
+    };
+    legend.addTo(map);
+
     // Add marker
-    const marker = L.marker([{{ $result['latitude'] }}, {{ $result['longitude'] }}]).addTo(map);
+    const marker = L.marker([{{ $result['latitude'] }}, {{ $result['longitude'] }}], { icon: riskIcon }).addTo(map);
     marker.bindPopup(`
         <b>Lokasi Analisis</b><br>
         Lintang: {{ $result['latitude'] }}<br>
