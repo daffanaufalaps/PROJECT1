@@ -2,9 +2,6 @@
 
 @section('content')
 
-<!-- Wajib memuat CSS Leaflet agar ubin peta tersusun rapi dan tidak pecah -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-
 <!-- Mengunci ukuran kotak peta agar pas di dalam card sebelah kanan -->
 <style>
     #map {
@@ -42,13 +39,13 @@
                             id="latitude"
                             name="latitude"
                             step="any"
-                            min="-11"
-                            max="6"
+                            min="-8.8"
+                            max="-5.8"
                             value="{{ $latitude ?? '' }}"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                             placeholder="Contoh: -6.2"
                         >
-                        <p class="mt-1 text-xs text-gray-500">Rentang: -11 sampai 6</p>
+                        <p class="mt-1 text-xs text-gray-500">Rentang: -8.8 sampai -5.8 (Pulau Jawa)</p>
                     </div>
 
                     <!-- Longitude Input -->
@@ -61,8 +58,8 @@
                             id="longitude"
                             name="longitude"
                             step="any"
-                            min="95"
-                            max="141"
+                            min="105.0"
+                            max="114.6"
                             value="{{ $longitude ?? '' }}"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                             placeholder="Contoh: 106.8"
@@ -559,7 +556,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
         // Update result narrative
         document.getElementById('resultNarrative').innerHTML = `<p>${data.narrative}</p>`;
-<p class="mt-1 text-xs text-gray-500">Rentang: -8.8 sampai -5.8 (Pulau Jawa)</p>
+
         // Scroll to results
         document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
     }
