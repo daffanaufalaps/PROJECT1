@@ -335,6 +335,40 @@
     };
     legend.addTo(map);
 
+    // Layer sesar aktif (data PuSGeN 2024, difilter untuk area Pulau Jawa)
+    const faultLayer = L.geoJSON(null, {
+        style: {
+            color: '#dc2626',
+            weight: 1.5,
+            opacity: 0.75,
+            dashArray: '4,3'
+        },
+        onEachFeature: function (feature, layer) {
+            const p = feature.properties || {};
+            layer.bindPopup(`
+                <strong>${p.name || 'Sesar tidak diketahui'}</strong><br>
+                Segmen: ${p.segment || '-'}<br>
+                Wilayah: ${p.region || '-'}<br>
+                Mmax: ${p.mmax ?? '-'}<br>
+                Panjang: ${p.length_km ?? '-'} km<br>
+                Laju geser: ${p.sliprate_m ?? '-'} mm/tahun<br>
+                Tipe: ${p.type || '-'}
+            `);
+        }
+    });
+
+    fetch('{{ asset("data/sesar-jawa.geojson") }}')
+        .then(res => res.json())
+        .then(data => {
+            faultLayer.addData(data);
+            faultLayer.addTo(map);
+        })
+        .catch(err => console.error('Gagal memuat data sesar aktif:', err));
+
+    L.control.layers(null, {
+        'Sesar Aktif (PuSGeN 2024)': faultLayer
+    }, { position: 'topright', collapsed: false }).addTo(map);
+
     // Add marker
     const marker = L.marker([{{ $result['latitude'] }}, {{ $result['longitude'] }}], { icon: riskIcon }).addTo(map);
     marker.bindPopup(`
