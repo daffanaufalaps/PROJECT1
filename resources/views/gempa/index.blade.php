@@ -111,6 +111,20 @@
                     </button>
                 </form>
 
+                <form id="downloadReportForm" method="POST" action="{{ route('download.report') }}" class="mt-3 hidden">
+                    @csrf
+                    <input type="hidden" name="result_data" id="resultDataInput">
+                    <button
+                        type="submit"
+                        class="w-full px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition font-semibold flex items-center justify-center"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Unduh PDF
+                    </button>
+                </form>
+
                 <!-- Validation Errors -->
                 <div id="validationErrors" class="mt-4 hidden">
                     <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -210,19 +224,6 @@
                     </div>
                 </div>
 
-                <form id="downloadReportForm" method="POST" action="{{ route('download.report') }}" class="mt-4">
-                    @csrf
-                    <input type="hidden" name="result_data" id="resultDataInput">
-                    <button
-                        type="submit"
-                        class="w-full px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition font-semibold flex items-center justify-center"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        Unduh Laporan (PDF)
-                    </button>
-                </form>
             </div>
         </div>
     </div>
@@ -525,8 +526,9 @@ document.addEventListener("DOMContentLoaded", function() {
     }
     document.getElementById('detailedStudyWarning').classList.add('hidden');
 
-    // Simpan data hasil untuk fitur unduh laporan PDF
+    // Simpan data hasil untuk fitur unduh laporan PDF, lalu tampilkan tombolnya
     document.getElementById('resultDataInput').value = JSON.stringify(results);
+    document.getElementById('downloadReportForm').classList.remove('hidden');
     
     // Update warna marker sesuai kategori risiko hasil perhitungan
     if (marker) {

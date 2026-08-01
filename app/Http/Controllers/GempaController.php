@@ -121,7 +121,7 @@ class GempaController extends Controller
             'result' => $result,
             'narrative' => $narrativeData['narrative'],
             'riskDescription' => $narrativeData['risk_description'],
-        ])->setPaper('a4');
+        ])->setPaper('a4')->setOption(['isPhpEnabled' => true]);
 
         $filename = 'Laporan-Risiko-Gempa-' . now()->format('Ymd-His') . '.pdf';
 
