@@ -92,21 +92,16 @@ class NarrationService
     }
 
     /**
-     * Deskripsi Skala SIG-BMKG.
-     *
-     * CATATAN: teks deskripsi ini adalah sintesis umum berdasarkan
-     * padanan skala MMI standar, BUKAN kutipan resmi dari dokumen BMKG.
-     * Sebaiknya ganti dengan teks resmi BMKG kalau kamu punya sumbernya,
-     * supaya akurat untuk dikutip di skripsi.
+     * Deskripsi Skala SIG-BMKG, sesuai Tabel 2.1.
      */
     public function getSigBmkgDescription(string $scale): string
     {
         return match ($scale) {
-            'I' => 'I - Getaran sangat lemah, umumnya tidak dirasakan masyarakat (setara MMI I-II).',
-            'II' => 'II - Getaran ringan dirasakan sebagian orang, benda ringan dapat bergoyang (setara MMI III-V).',
-            'III' => 'III - Getaran dirasakan hampir semua orang, kerusakan ringan mungkin terjadi (setara MMI VI).',
-            'IV' => 'IV - Getaran kuat, kerusakan ringan hingga sedang pada bangunan (setara MMI VII-VIII).',
-            'V' => 'V - Getaran sangat kuat, berpotensi kerusakan berat hingga keruntuhan bangunan (setara MMI IX-XII).',
+            'I' => 'I - Tidak dirasakan atau dirasakan hanya oleh beberapa orang tetapi tidak terekam oleh alat.',
+            'II' => 'II - Dirasakan oleh orang banyak tetapi tidak menimbulkan kerusakan. Benda-benda ringan yang digantung bergoyang dan jendela kaca bergetar.',
+            'III' => 'III - Bagian non struktur bangunan mengalami kerusakan ringan, seperti retak rambut pada dinding, atap bergeser ke bawah dan sebagian berjatuhan.',
+            'IV' => 'IV - Banyak retakan terjadi pada dinding bangunan sederhana, sebagian roboh, kaca pecah. Sebagian plester dinding lepas. Sebagian besar atap bergeser ke bawah atau runtuh. Struktur bangunan mengalami kerusakan ringan sampai sedang.',
+            'V' => 'V - Sebagian besar dinding bangunan permanen roboh. Struktur bangunan mengalami kerusakan berat. Rel kereta api melengkung.',
             default => 'Skala tidak diketahui.',
         };
     }
