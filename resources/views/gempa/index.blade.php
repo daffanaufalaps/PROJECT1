@@ -602,6 +602,20 @@ document.addEventListener("DOMContentLoaded", function() {
             });
         }
 
+        // Rekomendasi Fondasi
+        if (results.foundation_recommendation) {
+            const foundationSeparator = document.createElement('tr');
+            foundationSeparator.innerHTML = `<td colspan="3" class="px-4 py-2 bg-gray-50 text-sm font-semibold text-gray-700">Rekomendasi Fondasi</td>`;
+            tableBody.appendChild(foundationSeparator);
+
+            const frow = document.createElement('tr');
+            frow.innerHTML = `
+                <td class="px-4 py-3 text-sm font-medium text-gray-900">${results.foundation_recommendation.rekomendasi}</td>
+                <td class="px-4 py-3 text-sm text-gray-700" colspan="2">${results.foundation_recommendation.keterangan}</td>
+            `;
+            tableBody.appendChild(frow);
+        }
+
         // Gempa historis terdekat
         if (results.nearest_earthquakes && results.nearest_earthquakes.length > 0) {
             const eqSeparator = document.createElement('tr');

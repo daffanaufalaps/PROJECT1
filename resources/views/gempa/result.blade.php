@@ -182,7 +182,7 @@
                                     <td class="px-3 py-2 text-sm text-gray-700">SD1</td>
                                     <td class="px-3 py-2 text-sm text-gray-900">{{ $result['sd1'] }} g</td>
                                 </tr>
-                                <tr><td colspan="2" class="px-3 py-2 bg-gray-100 text-xs text-gray-500 font-semibold">Rekomendasi Sistem Pemikul Gaya Seismik (SPGS)</td></tr>
+                               <tr><td colspan="2" class="px-3 py-2 bg-gray-100 text-xs text-gray-500 font-semibold">Rekomendasi Sistem Pemikul Gaya Seismik (SPGS)</td></tr>
                                 @forelse(($result['spgs_recommendations'] ?? []) as $spgs)
                                 <tr>
                                     <td class="px-3 py-2 text-sm text-gray-700">{{ $spgs['sistem'] }} ({{ $spgs['kode'] }})</td>
@@ -193,6 +193,13 @@
                                     <td colspan="2" class="px-3 py-2 text-sm text-gray-500 italic">Tidak ada rekomendasi tersedia untuk KDS ini.</td>
                                 </tr>
                                 @endforelse
+                                @if(!empty($result['foundation_recommendation']))
+                                <tr><td colspan="2" class="px-3 py-2 bg-gray-100 text-xs text-gray-500 font-semibold">Rekomendasi Fondasi</td></tr>
+                                <tr>
+                                    <td class="px-3 py-2 text-sm text-gray-700">{{ $result['foundation_recommendation']['rekomendasi'] }}</td>
+                                    <td class="px-3 py-2 text-sm text-gray-900">{{ $result['foundation_recommendation']['keterangan'] }}</td>
+                                </tr>
+                                @endif
                             </tbody>
                         </table>
                     </div>

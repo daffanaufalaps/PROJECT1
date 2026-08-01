@@ -67,9 +67,9 @@ class GempaCalculationService
                 'risk_category' => null,
                 'kds' => null,
                 'spgs_recommendations' => [],
+                'foundation_recommendation' => null,
                 'nearest_earthquakes' => $nearestEarthquakes,
                 'requires_detailed_study' => true,
-                'warning_message' => 'Diperlukan penghitungan yang lebih mendetail terhadap lokasi Anda.',
             ];
 
             $this->saveHistory($result);
@@ -106,6 +106,9 @@ class GempaCalculationService
         // Step 10: Rekomendasi SPGS berdasarkan KDS (Lampiran 2)
         $spgsRecommendations = $this->determineSpgsRecommendations($kds);
 
+        // Step 11: Rekomendasi fondasi berdasarkan Kelas Situs (Tabel 2.5)
+        $foundationRecommendation = $this->determineFoundationRecommendation($effectiveSiteClass);
+
         $result = [
             'latitude' => $latitude,
             'longitude' => $longitude,
@@ -129,6 +132,7 @@ class GempaCalculationService
             'risk_category' => $riskCategory,
             'kds' => $kds,
             'spgs_recommendations' => $spgsRecommendations,
+            'foundation_recommendation' => $foundationRecommendation,
             'nearest_earthquakes' => $nearestEarthquakes,
             'requires_detailed_study' => false,
         ];
@@ -320,9 +324,29 @@ class GempaCalculationService
     }
 
     /**
+     * Rekomendasi fondasi berdasarkan Kelas Situs, sesuai Tabel 2.5
+     * (disusun dari SNI 1726:2019 Pasal 5.3 dan 5.4.2).
+     * Kelas Situs F sengaja tidak dipetakan di sini -- kasus itu sudah
+     * ditangani lebih awal di calculate() (requires_detailed_study).
+     */
+    public function determineFoundationRecommendation(string $siteClass): ?array
+    {
+        $table = [
+            'A' => ['rekomendasi' => 'Fondasi Telapak', 'keterangan' => 'Risiko gempa sangat rendah'],
+            'B' => ['rekomendasi' => 'Fondasi Telapak / Batu Kali Bertulang', 'keterangan' => 'Risiko gempa rendah'],
+            'C' => ['rekomendasi' => 'Telapak Diperbesar + Sloof Menerus', 'keterangan' => 'Risiko gempa sedang'],
+            'D' => ['rekomendasi' => 'Telapak Diperbesar / Raft Foundation', 'keterangan' => 'Risiko gempa cukup tinggi'],
+            'E' => ['rekomendasi' => 'Tiang Pancang / Bore Pile', 'keterangan' => 'Risiko gempa tinggi dan potensi likuifaksi'],
+        ];
+
+        return $table[$siteClass] ?? null;
+    }
+
+    /**
      * Rekomendasi Sistem Pemikul Gaya Seismik (SPGS) berdasarkan KDS,
      * sesuai Lampiran 2.
      */
+    
     public function determineSpgsRecommendations(string $kds): array
     {
         $table = [

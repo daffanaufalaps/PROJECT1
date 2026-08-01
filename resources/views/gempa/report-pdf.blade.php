@@ -136,6 +136,17 @@
         </table>
         @endif
 
+        @if(!empty($result['foundation_recommendation']))
+        <div class="section-title">Rekomendasi Fondasi</div>
+        <table class="data-table">
+            <tr><th>Rekomendasi</th><th>Keterangan</th></tr>
+            <tr>
+                <td>{{ $result['foundation_recommendation']['rekomendasi'] }}</td>
+                <td>{{ $result['foundation_recommendation']['keterangan'] }}</td>
+            </tr>
+        </table>
+        @endif
+
         @if(!empty($result['nearest_earthquakes']))
         <div class="section-title">Gempa Historis Terdekat</div>
         <table class="data-table">
