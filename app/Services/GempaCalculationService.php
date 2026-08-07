@@ -62,6 +62,8 @@ class GempaCalculationService
                 'pga' => null,
                 'pga_gal' => null,
                 'pga_source' => null,
+                'f_pga' => null,
+                'pga_m' => null,
                 'sig_bmkg_scale' => null,
                 'sig_bmkg_mmi_equivalent' => null,
                 'risk_category' => null,
@@ -93,6 +95,10 @@ class GempaCalculationService
             $pga = $hazard['pga'];
             $pgaSource = 'backend';
         }
+
+// Step 6b: Hitung PGA Permukaan (PGA_M) = F_PGA x PGA, sesuai SNI 1726:2019
+        $fPga = $this->calculateFPga($pga, $effectiveSiteClass);
+        $pgaM = $fPga !== null ? round($fPga * $pga, 4) : null;
 
         // Step 7: Konversi PGA ke Skala SIG-BMKG (Tabel 2.1) — klasifikasi interval, bukan regresi
         $sigBmkg = $this->convertPgaToSigBmkg($pga);
@@ -127,6 +133,8 @@ class GempaCalculationService
             'pga' => round($pga, 4),
             'pga_gal' => $sigBmkg['pga_gal'],
             'pga_source' => $pgaSource,
+            'f_pga' => $fPga !== null ? round($fPga, 4) : null,
+            'pga_m' => $pgaM,
             'sig_bmkg_scale' => $sigBmkg['scale'],
             'sig_bmkg_mmi_equivalent' => $sigBmkg['mmi_equivalent'],
             'risk_category' => $riskCategory,
@@ -252,6 +260,54 @@ class GempaCalculationService
     public function calculatePGA(float $sds, float $ss, float $sms): float
     {
         return max(0.4 * $ss, 0.4 * $sms);
+    }
+
+    /**
+     * Faktor amplifikasi PGA (F_PGA) berdasarkan Kelas Situs dan nilai PGA batuan
+     * dasar, sesuai Tabel F_PGA SNI 1726:2019. Interpolasi linear dipakai untuk
+     * nilai PGA di antara titik-titik acuan tabel (0,1 / 0,2 / 0,3 / 0,4 / 0,5).
+     * Kelas Situs F (atau tak dikenal) mengembalikan null -- tidak ditebak.
+     */
+    public function calculateFPga(float $pgaBedrock, string $siteClass): ?float
+    {
+        // Kunci array sengaja pakai STRING ('0.1', bukan 0.1) -- PHP otomatis
+        // membulatkan kunci array desimal jadi integer kalau ditulis sebagai angka,
+        // yang bikin semua kunci di sini bertabrakan jadi satu (bug yang baru ditemukan).
+        $table = [
+            'A' => ['0.1' => 0.8, '0.2' => 0.8, '0.3' => 0.8, '0.4' => 0.8, '0.5' => 0.8],
+            'B' => ['0.1' => 1.0, '0.2' => 1.0, '0.3' => 1.0, '0.4' => 1.0, '0.5' => 1.0],
+            'C' => ['0.1' => 1.2, '0.2' => 1.2, '0.3' => 1.1, '0.4' => 1.0, '0.5' => 1.0],
+            'D' => ['0.1' => 1.6, '0.2' => 1.4, '0.3' => 1.2, '0.4' => 1.1, '0.5' => 1.0],
+            'E' => ['0.1' => 2.5, '0.2' => 1.7, '0.3' => 1.2, '0.4' => 0.9, '0.5' => 0.9],
+        ];
+
+        if (!isset($table[$siteClass])) {
+            return null;
+        }
+
+        $points = $table[$siteClass];
+        $pgaKeys = array_map('floatval', array_keys($points));
+        $pgaValues = array_values($points);
+        $lastIndex = count($pgaKeys) - 1;
+
+        if ($pgaBedrock <= $pgaKeys[0]) {
+            return $pgaValues[0];
+        }
+        if ($pgaBedrock >= $pgaKeys[$lastIndex]) {
+            return $pgaValues[$lastIndex];
+        }
+
+        for ($i = 0; $i < $lastIndex; $i++) {
+            $x1 = $pgaKeys[$i];
+            $x2 = $pgaKeys[$i + 1];
+            if ($pgaBedrock >= $x1 && $pgaBedrock <= $x2) {
+                $y1 = $pgaValues[$i];
+                $y2 = $pgaValues[$i + 1];
+                return $y1 + ($y2 - $y1) * (($pgaBedrock - $x1) / ($x2 - $x1));
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -39,7 +39,6 @@
             <div class="flex space-x-4">
                 <a href="{{ route('admin.dashboard') }}" class="px-3 py-4 text-blue-600 border-b-2 border-blue-600 font-medium text-sm">Dashboard</a>
                 <a href="{{ route('admin.history') }}" class="px-3 py-4 text-gray-600 hover:text-blue-600 font-medium text-sm transition">Riwayat Perhitungan</a>
-                <a href="{{ route('home') }}" class="px-3 py-4 text-gray-600 hover:text-blue-600 font-medium text-sm transition">Lihat Aplikasi</a>
             </div>
         </div>
     </nav>

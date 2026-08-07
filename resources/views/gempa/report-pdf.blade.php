@@ -167,7 +167,7 @@
                 <td>
                     <div class="stat-value" style="color:#1e3a8a;">{{ $result['pga'] }} g</div>
                     <div class="stat-sub">({{ $result['pga_gal'] }} gal)</div>
-                    <div class="stat-label">Nilai PGA</div>
+                    <div class="stat-label">PGA (Batuan Dasar)</div>
                 </td>
                 <td>
                     <div class="stat-value" style="color:#1e3a8a;">Skala {{ $result['sig_bmkg_scale'] }}</div>
@@ -204,6 +204,10 @@
                 <td>SDS (Parameter percepatan desain 0,2 detik)</td><td>{{ $result['sds'] }} g</td>
                 <td>SD1 (Parameter percepatan desain 1,0 detik)</td><td>{{ $result['sd1'] }} g</td>
             </tr>
+            <tr>
+                <td>F_PGA (Faktor amplifikasi PGA)</td><td>{{ $result['f_pga'] }}</td>
+                <td>PGA_M (PGA Permukaan)</td><td>{{ $result['pga_m'] }} g</td>
+            </tr>
         </table>
 
         @if(!empty($result['spgs_recommendations']) || !empty($result['foundation_recommendation']))
@@ -222,6 +226,27 @@
                 <td>{{ $result['foundation_recommendation']['keterangan'] }}</td>
             </tr>
             @endif
+        </table>
+
+        <div style="text-align:center; margin-bottom:10px;">
+            <img src="{{ public_path('images/ilustrasi-fondasi-kelas-situs.jpg') }}" style="width:100%; max-width:520px; height:auto; border:1px solid #e5e7eb; border-radius:4px;">
+        </div>
+
+        <table style="width:100%; border-collapse:collapse; margin-bottom:8px;">
+            <tr>
+                <td style="width:33%; text-align:center; padding:5px; border:1px solid #e5e7eb;">
+                    <img src="{{ public_path('images/spgs-srpm.png') }}" style="width:80px; height:auto;">
+                    <div style="font-size:7.5px; margin-top:3px; font-weight:bold;">SRPM (Sistem Rangka Pemikul Momen)</div>
+                </td>
+                <td style="width:33%; text-align:center; padding:5px; border:1px solid #e5e7eb;">
+                    <img src="{{ public_path('images/spgs-dinding-struktur.png') }}" style="width:80px; height:auto;">
+                    <div style="font-size:7.5px; margin-top:3px; font-weight:bold;">Dinding Struktur (Shear Wall)</div>
+                </td>
+                <td style="width:33%; text-align:center; padding:5px; border:1px solid #e5e7eb;">
+                    <img src="{{ public_path('images/spgs-sistem-ganda.png') }}" style="width:80px; height:auto;">
+                    <div style="font-size:7.5px; margin-top:3px; font-weight:bold;">Sistem Ganda (Dual System)</div>
+                </td>
+            </tr>
         </table>
         @endif
 

@@ -579,7 +579,8 @@ document.addEventListener("DOMContentLoaded", function() {
         tableBody.innerHTML = '';
 
         const rows = [
-            { param: 'PGA (Peak Ground Acceleration)', value: results.pga + ' g (' + results.pga_gal + ' gal)', desc: 'Percepatan puncak tanah' },
+            { param: 'PGA (Peak Ground Acceleration)', value: results.pga + ' g (' + results.pga_gal + ' gal)', desc: 'Percepatan puncak tanah (batuan dasar)' },
+            { param: 'PGA Permukaan (PGA_M)', value: results.pga_m + ' g', desc: 'PGA_M = F_PGA (' + results.f_pga + ') x PGA -- sesuai SNI 1726:2019' },
             { param: 'Skala SIG-BMKG', value: results.sig_bmkg_scale + ' (setara MMI ' + results.sig_bmkg_mmi_equivalent + ')', desc: data.sig_bmkg_description },
             { param: 'Kategori Risiko', value: results.risk_category, desc: data.risk_description },
             { param: 'KDS (Kategori Desain Seismik)', value: results.kds, desc: 'Kategori desain seismik sesuai SNI 1726:2019' },

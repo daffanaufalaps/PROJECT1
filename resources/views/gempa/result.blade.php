@@ -128,6 +128,10 @@
                                     <td class="px-3 py-3 text-sm font-medium text-gray-900">PGA</td>
                                     <td class="px-3 py-3 text-sm text-blue-600 font-bold">{{ $result['pga'] }} g</td>
                                 </tr>
+                                <tr>
+                                    <td class="px-3 py-3 text-sm font-medium text-gray-900">PGA Permukaan (PGA_M)</td>
+                                    <td class="px-3 py-3 text-sm text-blue-600 font-bold">{{ $result['pga_m'] }} g <span class="text-xs text-gray-500 font-normal">(F_PGA = {{ $result['f_pga'] }})</span></td>
+                                </tr>
                                 <tr class="bg-blue-50">
                                     <td class="px-3 py-3 text-sm font-medium text-gray-900">Skala SIG-BMKG</td>
                                     <td class="px-3 py-3 text-sm text-blue-600 font-bold">{{ $result['sig_bmkg_scale'] }} - {{ $sigBmkgDescription }}</td>
